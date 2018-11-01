@@ -57,13 +57,15 @@ class TestS3PitRestore(unittest.TestCase):
             base_path = os.path.join(args.dest, base_path)
 
         s3 = boto3.resource('s3')
-        objects_to_download = s3.meta.client.list_objects(Bucket=args.dest_bucket, Prefix=base_path)
+        paginator = s3.meta.client.get_paginator('list_objects_v2')
+        page_iterator = paginator.paginate(Bucket=args.dest_bucket, Prefix=base_path)
         with concurrent.futures.ThreadPoolExecutor(args.max_workers) as e:
-            for obj in objects_to_download.get('Contents', []):
-                key_path = os.path.dirname(obj["Key"])
-                if key_path and not os.path.exists(key_path):
-                        os.makedirs(key_path)
-                e.submit(s3.Bucket(args.dest_bucket).download_file(obj["Key"], obj["Key"]))
+            for page in page_iterator:
+               for obj in page.get('Contents', []):
+                  key_path = os.path.dirname(obj["Key"])
+                  if key_path and not os.path.exists(key_path):
+                      os.makedirs(key_path)
+                  e.submit(s3.Bucket(args.dest_bucket).download_file(obj["Key"], obj["Key"]))
 
     def check_tree(self, path, contents):
         if args.dest_bucket is not None:
@@ -86,19 +88,22 @@ class TestS3PitRestore(unittest.TestCase):
     def upload_directory(self, resource, path, bucketname):
         with concurrent.futures.ThreadPoolExecutor(args.max_workers) as e:                
             for root,dirs,files in os.walk(path):
-                for f in files:
-                    base_path = os.path.basename(os.path.normpath(path))
-                    local_path = os.path.join(root, f)
-                    relative_path = os.path.relpath(local_path, path)
-                    s3_path = os.path.join(base_path, relative_path)
-                    e.submit(resource.meta.client.upload_file, local_path, bucketname, s3_path)
+               for f in files:
+                  base_path = os.path.basename(os.path.normpath(path))
+                  local_path = os.path.join(root, f)
+                  relative_path = os.path.relpath(local_path, path)
+                  s3_path = os.path.join(base_path, relative_path)
+                  e.submit(resource.meta.client.upload_file, local_path, bucketname, s3_path)
 
     def delete_directory(self, resource, path):
         base_path = os.path.basename(os.path.normpath(path))
-        objects_to_delete = resource.meta.client.list_objects(Bucket=args.bucket, Prefix=base_path)
-        delete_keys = {'Objects' : []}
-        delete_keys['Objects'] = [{'Key' : k} for k in [obj['Key'] for obj in objects_to_delete.get('Contents', [])]]
-        resource.meta.client.delete_objects(Bucket=args.bucket, Delete=delete_keys)
+        paginator = resource.meta.client.get_paginator('list_objects_v2')
+        page_iterator = paginator.paginate(Bucket=args.bucket, Prefix=base_path)
+        with concurrent.futures.ThreadPoolExecutor(args.max_workers) as e:
+            for page in page_iterator:
+               delete_keys = {'Objects' : []}
+               delete_keys['Objects'] = [{'Key' : k} for k in [obj['Key'] for obj in page.get('Contents', [])]]
+               e.submit(resource.meta.client.delete_objects(Bucket=args.bucket, Delete=delete_keys))
 
     def remove_tree(self, path):
         if os.path.exists(path) and os.path.isdir(path):
@@ -113,9 +118,8 @@ class TestS3PitRestore(unittest.TestCase):
         print("enabled!")
 
     def test_restore(self):
-        #AWS gives us versions chunks of maximum 1000 element, cycling here to obtain more
-        contents_before = [ str(uuid.uuid4()) for n in range(999) ]
-        contents_after =  [ str(uuid.uuid4()) for n in range(999) ]
+        contents_before = [ str(uuid.uuid4()) for n in range(2048) ]
+        contents_after =  [ str(uuid.uuid4()) for n in range(2048) ]
         path = os.path.join(os.path.abspath(args.dest), "test-s3-pit-restore")
         s3 = boto3.resource('s3')
         self.check_versioning(s3)
@@ -244,7 +248,7 @@ def download_file(obj):
 def get_key(obj):
     if not args.dest:
         return  obj["Key"]
-    return os.path.join(dest, obj["Key"])
+    return os.path.join(args.dest, obj["Key"])
 
 def s3_copy_object(obj):
     copy_source= {
@@ -274,17 +278,16 @@ def do_restore():
     if args.dest_bucket is None:
         if not os.path.exists(dest):
             os.makedirs(dest)
-
         os.chdir(dest)
 
-    # AWS gives us versions chunks of maximum 1000 element, cycling here to obtain more
-    objects = client.list_object_versions(Bucket=args.bucket, Prefix=args.prefix) # cannot pass VersionIdMarker on first call
-    while (True):
-        if not "Versions" in objects:
+    paginator = client.get_paginator('list_object_versions')
+    page_iterator = paginator.paginate(Bucket=args.bucket, Prefix=args.prefix)
+    for page in page_iterator:
+        if not "Versions" in page:
             print("No versions matching criteria, exiting ...", file=sys.stderr)
             sys.exit(1)
-        versions = objects["Versions"]
-        deletemarkers = objects.get("DeleteMarkers", [])
+        versions = page["Versions"]
+        deletemarkers = page.get("DeleteMarkers", [])
         dmarker = {"Key":""}
         for obj in versions:
             if last_obj["Key"] == obj["Key"]:
@@ -327,14 +330,6 @@ def do_restore():
                 except Exception as ex:
                     print('"%s" %s %s %s %s "ERROR: %s"' % (obj["LastModified"], obj["VersionId"], obj["Size"], obj["StorageClass"], obj["Key"], ex), file=sys.stderr)
                 del(futures[future])
-
-        if objects["IsTruncated"]:
-            # More objects to be got
-            objects = client.list_object_versions(Bucket=args.bucket, Prefix=args.prefix, \
-                KeyMarker=objects["NextKeyMarker"], VersionIdMarker=objects["NextVersionIdMarker"])
-        else:
-            break
-
 
 if __name__=='__main__':
     signal.signal(signal.SIGINT, signal_handler)

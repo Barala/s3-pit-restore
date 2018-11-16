@@ -4,14 +4,14 @@ This is the repository for s3-pit-restore, a point in time restore tool
 for Amazon S3.
 
 The typical scenario in which you may need this tool is when you have
-enabled versioning on an S3 bucket and want to restore, some or all of
+enabled versioning on an S3 bucket and want to restore some or all of
 the files to a certain point in time, to local file system, same s3 bucket or different s3 bucket.
 
 Doing this with the web interface is time consuming: Amazon S3 web management
 gui doesn't offer a simple way to do that on a massive scale.
 
 With this tool you can easily restore a repository to a point in time
-with a simple command like this:-
+with a simple command like:
 
 	* To local file-system:-
 		`$ s3-pit-restore -b my-bucket -d restored-bucket-local -t "06-17-2016 23:59:50 +2"`
@@ -68,10 +68,9 @@ or clone the repository and launch:
 ## Command line options
 
 ```
-usage: s3-pit-restore [-h] -b BUCKET [-B DEST_BUCKET] [-p PREFIX]
-                      [-t TIMESTAMP] [-f FROM_TIMESTAMP] [-d DEST] [-e] [-v]
-                      [--dry-run] [--debug] [--test]
-                      [--max-workers MAX_WORKERS]
+usage: s3-pit-restore [-h] -b BUCKET [-B DEST_BUCKET] [-d DEST] [-p PREFIX]
+                      [-t TIMESTAMP] [-f FROM_TIMESTAMP] [-e] [-v] [--dry-run]
+                      [--debug] [--test] [--max-workers MAX_WORKERS]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -79,13 +78,13 @@ optional arguments:
                         s3 bucket to restore from
   -B DEST_BUCKET, --dest-bucket DEST_BUCKET
                         s3 bucket where recovering to
+  -d DEST, --dest DEST  path where recovering to on local or on s3
   -p PREFIX, --prefix PREFIX
                         s3 path to restore from
   -t TIMESTAMP, --timestamp TIMESTAMP
                         final point in time to restore at
   -f FROM_TIMESTAMP, --from-timestamp FROM_TIMESTAMP
                         starting point in time to restore from
-  -d DEST, --dest DEST  path where recovering to on local or on s3
   -e, --enable-glacier  enable recovering from glacier
   -v, --verbose         print verbose informations from s3 objects
   --dry-run             execute query without transferring files
@@ -99,11 +98,11 @@ optional arguments:
 
 s3-pit-restore comes with a testing suite. You can run it with:
 
-### Restore to local file-system test cases:-
+### Restore to local file-system test cases:
 	`$ ./s3-pit-restore -b my-bucket -d /tmp/ --test`
 
-### Restore to s3 bucket test cases:-
+### Restore to s3 bucket test cases:
 	`$ ./s3-pit-restore -b my-bucket -B restore-bucket-s3 --test` (make sure you have s3 bucket `restore-bucket-s3`)
 
-### Run all the test cases:-
+### Run all the test cases:
 	`$ ./s3-pit-restore -b my-bucket -B restore-bucket-s3 -d /tmp/ --test`

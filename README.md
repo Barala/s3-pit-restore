@@ -49,8 +49,8 @@ or clone the repository and launch:
 	* Restore to different bucket:-
 		`$ s3-pit-restore -b my-bucket -B restored-bucket-s3 -t "06-17-2016 23:59:50 +2"`
 
-	* Restore to s3 bucket with custom virtual path [restored object(src_obj) will have key as `new-restored-path/src_obj["Key"]`]
-		`$ s3-pit-restore -b my-bucket -B restored-bucket-s3 -d new-restored-path -t "06-17-2016 23:59:50 +2"`
+	* Restore to s3 bucket with custom virtual prefix [restored object(src_obj) will have key as `new-restored-path/src_obj["Key"]`]
+		`$ s3-pit-restore -b my-bucket -B restored-bucket-s3 -P new-restored-path -t "06-17-2016 23:59:50 +2"`
 
 ### Other common options for both the cases
 
@@ -68,9 +68,10 @@ or clone the repository and launch:
 ## Command line options
 
 ```
-usage: s3-pit-restore [-h] -b BUCKET [-B DEST_BUCKET] [-d DEST] [-p PREFIX]
-                      [-t TIMESTAMP] [-f FROM_TIMESTAMP] [-e] [-v] [--dry-run]
-                      [--debug] [--test] [--max-workers MAX_WORKERS]
+usage: s3-pit-restore [-h] -b BUCKET [-B DEST_BUCKET] [-d DEST]
+                      [-P DEST_PREFIX] [-p PREFIX] [-t TIMESTAMP]
+                      [-f FROM_TIMESTAMP] [-e] [-v] [--dry-run] [--debug]
+                      [--test] [--max-workers MAX_WORKERS]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -78,9 +79,11 @@ optional arguments:
                         s3 bucket to restore from
   -B DEST_BUCKET, --dest-bucket DEST_BUCKET
                         s3 bucket where recovering to
-  -d DEST, --dest DEST  path where recovering to on local or on s3
+  -d DEST, --dest DEST  path where recovering to on local
   -p PREFIX, --prefix PREFIX
                         s3 path to restore from
+  -P DEST_PREFIX, --dest-prefix DEST_PREFIX
+                        s3 path to restore to
   -t TIMESTAMP, --timestamp TIMESTAMP
                         final point in time to restore at
   -f FROM_TIMESTAMP, --from-timestamp FROM_TIMESTAMP
@@ -102,7 +105,7 @@ s3-pit-restore comes with a testing suite. You can run it with:
 	`$ ./s3-pit-restore -b my-bucket -d /tmp/ --test`
 
 ### Restore to s3 bucket test cases:
-	`$ ./s3-pit-restore -b my-bucket -B restore-bucket-s3 --test` (make sure you have s3 bucket `restore-bucket-s3`)
+	`$ ./s3-pit-restore -b my-bucket -B restore-bucket-s3 -P restore-path --test` (make sure you have s3 bucket `restore-bucket-s3`)
 
 ### Run all the test cases:
-	`$ ./s3-pit-restore -b my-bucket -B restore-bucket-s3 -d /tmp/ --test`
+	`$ ./s3-pit-restore -b my-bucket -B restore-bucket-s3 -d /tmp/ -P restore-path --test`
